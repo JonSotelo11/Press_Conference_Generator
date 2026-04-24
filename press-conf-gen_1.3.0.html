@@ -90,7 +90,7 @@
                                                 season_dates[current_season].seasonID, 
                                                 (response)=>{
                                                     gmsData = response;
-
+                                                    console.log("loadFlag is " + loadFlag + "\n");
                                                     if(loadFlag)
                                                         getGMSData("https://gms.internal.nba.com/gms/ui/v1/games",
                                                             document.getElementById("start").value.split('T')[0], 
@@ -149,7 +149,7 @@
                                                         getFileData(input, 
                                                             (res)=>
                                                             {
-                                                                
+                                                                console.log("Entered GetFileData");
                                                                 fileData = JSON.parse(res);
                                                                 let game_dates = fileData.leagueSchedule.gameDates;
                                                                 const filtered_dates = game_dates.filter(checkDate);
@@ -863,9 +863,6 @@
                         let res = this.responseText;
                         
                         callback(JSON.parse(res));
-                    }
-                    else{
-                        callback(null)
                     }
                 };
                 xhttp.open("GET", url +`?startDate=${sDate}&endDate=${eDate}&seasonID=${seasonID}`, true);
