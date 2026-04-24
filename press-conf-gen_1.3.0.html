@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Press Conference Generator</title>
+        <!--script type="module" src="./press_conference_generator.js"-->
+        <script>
+            const p_conf = "Press Conference: ";
+            const post_pr = " Postgame Presser";
+            const event_type_gms = "Postgame";
+            const event_type_schedule = "Press Conference";
+            const blackout = "None";
+            const geo = "None";
+            const entitlement = "Free";
+            const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+            const natMedias = ["NSS-TNT", "NSS-ESPN", "NSS-ABC"];
+            const teamEncoders ={
+                ATL : "1",
+                BKN : "2",
+                BOS : "3",
+                CHA : "4",
+                CHI : "5",
+                CLE : "6",
+                DAL : "7",
+                DEN : "8",
+                DET : "9",
+                GSW : "10",
+                HOU : "11",
+                IND : "12",
+                LAC : "13",
+                LAL : "14",
+                MEM : "15",
+                MIA : "16",
+                MIL : "17",
+                MIN : "18",
+                NOP : "19",
+                NYK : "20",
+                OKC : "21",
+                ORL : "22",
+                PHI : "23",
+                PHX : "24",
+                POR : "25",
+                SAC : "26",
+                SAS : "27",
+                TOR : "28",
+                UTA : "29",
+                WAS : "30"
+            };
+            let loadFlag = false;
+            const season_dates = {
+                preseason : {
+                    seasonID : "12024",
+                    begin_date : "2025-10-02",
+                    finish_date : "2025-10-17",
+                },
+
+                regularSeason : {
+                    seasonID : "22024",
+                    begin_date : "2025-10-21",
+                    finish_date : "2026-04-12",
+                },
+
+                playoffs: {
+                    seasonID : "42024",
+                    begin_date : "2026-04-18",
+                    finish_date : "2026-06-19",
+                },
+
+                playin :{
+                    seasonID : "52024",
+                    begin_date : "2026-04-14",
+                    finish_date : "2026-04-17",
+                }
+            }
+            let current_season = "regularSeason"
+
+            window.onload = function(){
+            
+                //https://gms.nba.com/gms/ui/v1/games?endDate=2025-03-21&leagueId=00&page=1&pagesize=2000&seasonId=22024&stage=1&startDate=2025-03-17&status=1
+                
+                document.getElementById("submit").addEventListener("click", function (){
+                    let input = document.getElementById("file");
+                    var gmsData;
+                    var fileData;
+                    var csv_schedule_data = [];
+                    var csv_data = [];
+
+                    getGMSData("https://gms.internal.nba.com/gms/ui/v1/mediascheduleoperations/games",
+                                                document.getElementById("start").value.split('T')[0], 
+                                                document.getElementById("end").value.split('T')[0],
+                                                season_dates[current_season].seasonID, 
+                                                (response)=>{
+                                                    gmsData = response;
+
+                                                    if(loadFlag)
+                                                        getGMSData("https://gms.internal.nba.com/gms/ui/v1/games",
+                                                            document.getElementById("start").value.split('T')[0], 
+                                                            document.getElementById("end").value.split('T')[0],
+                                                            season_dates[current_season].seasonID, 
+                                                            (res)=>{
+                                                                
+                                                                //console.log(res)
+                                                                
+                                                                let dataJSON = bubbleSort(res);
+                                                                var csv_row_header = ["Name", "Event Type", "Eastern Date", "Eastern Time", "Local Date Time", "Location"];
+                                                                var csv_schedule_row_header = ["Event Type", "Day", "Date","", "Game/Event","","Stream(s)","","", "Orchestrator Start Time", "Scheduled Start Time ET","","","","","","","", "COLO Assignment (TOC)","","", "Blackout", "Geo Targeting", "Entitlements"];
+                                                                let return_arr = [];
+                                                                let csv_schedule_data = [];
+                                                                let csv_data = [];
+
+                                                                csv_data.push(csv_row_header); 
+                                                                csv_schedule_data.push(csv_schedule_row_header);
+                                                                let checked_games = document.getElementsByClassName("checkbox");
+
+                                                             
+                                                                for(let games of dataJSON)
+                                                                {
+                                                                    
+                                                                    for(let check_box of checked_games)
+                                                                    {
+                                                                        
+                                                                        if(!check_box.checked)
+                                                                            continue;
+                                                        
+                                                                        if(games.gameId == check_box.id){
+                                                                            return_arr.push(games);
+                                                                            break;
+                                                                        }
+                                                                    }
+                                                                }
+                                                            //function createCSV(select_games, gmsD, arena, aTeam, hTeam, awayTri, homeTri, utcTime, sType){
+                                                                for(let game of return_arr){
+                                                                    if(game.seasonType == "3")
+                                                                        continue;
+                                                                    if(game.homeTeamName == null && game.awayTeamName == null)
+                                                                        continue;
+
+                                                                    let returned = buildCSV(game.gameId, gmsData, game.locationName, game.awayTeamName, game.homeTeamName, game.awayTeamAbbr, game.homeTeamAbbr, game.dateTimeUtc);
+                                                                    
+                                                                    csv_data.push(...returned["csvData"]);
+                                                                    csv_schedule_data.push(...returned["csvScheduleData"]);
+                                                                }
+                                                                createCSV(csv_data,csv_schedule_data);
+
+                                     
+                                                                
+                                                            })
+                                                    //if statement to see which route to take for data getGMSTableData or getFileData
+                                                    else
+                                                        getFileData(input, 
+                                                            (res)=>
+                                                            {
+                                                                
+                                                                fileData = JSON.parse(res);
+                                                                let game_dates = fileData.leagueSchedule.gameDates;
+                                                                const filtered_dates = game_dates.filter(checkDate);
+                
+
+                                                                var csv_row_header = ["Name", "Event Type", "Eastern Date", "Eastern Time", "Local Date Time", "Location"];
+                                                                var csv_schedule_row_header = ["Event Type", "Day", "Date","", "Game/Event","","Stream(s)","","", "Orchestrator Start Time", "Scheduled Start Time ET","","","","","","","", "COLO Assignment (TOC)","","", "Blackout", "Geo Targeting", "Entitlements"];
+                                                                let return_arr = [];
+                                                                let csv_schedule_data = [];
+                                                                let csv_data = [];
+
+                                                                csv_data.push(csv_row_header); 
+                                                                csv_schedule_data.push(csv_schedule_row_header);
+
+                                                                //section where checkbox checking begins
+                                                                //function -> pass data to check
+                                                                let checked_games = document.getElementsByClassName("checkbox");
+
+                                                                for(let date of filtered_dates)
+                                                                {
+                                                                    for(let games of date.games)
+                                                                    {
+                                                                        
+                                                                        for(let check_box of checked_games)
+                                                                        {
+                                                                            
+                                                                            if(!check_box.checked)
+                                                                                continue;
+                                                            
+                                                                            if(games.gameId == check_box.id){
+                                                                                return_arr.push(games);
+                                                                                break;
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                                //console.log(return_arr)
+                                                                //section where data is now read and added to the variables that will be used to generate the csv files
+                                                                for(let game of return_arr)
+                                                                {
+                                                                    
+                                                                    if(game.seasonType == "All-Star")
+                                                                        continue;
+                                                                    
+                                                                    let csv_row = [];
+                                                                    let csv_schedule_row =[];
+                                                                    
+                                                                    let d = new Date(game.gameDateTimeUTC);
+                                                                    let o = new Date(game.gameDateTimeUTC);
+
+                                                                    
+                                                                    //get the minute value of the date instance and + 150 for the presser time( 2 and half hours in minutes after event start) and - 105 (orchestrator time 1 hour 45 in minutes before)
+                                                                    let orch_diff = o.getMinutes() - 105 + 150;
+                                                                    o.setMinutes(orch_diff);
+                                                                
+                                                                    let press_diff = d.getMinutes() + 150;
+                                                                    d.setMinutes(press_diff);
+
+                                                                    let orch_time = o.toLocaleTimeString('en-US',{timeZone:'America/New_York', hour: 'numeric', minute: 'numeric', hour12: true});
+                                                                    let time = d.toLocaleTimeString('en-US',{timeZone:'America/New_York', hour: 'numeric', minute: 'numeric', hour12: true});
+                                                                    let date = d.toLocaleDateString('en-US',{timeZone:'America/New_York'});
+                                                                    let day = days[d.getDay()];
+                                                                    let home_gms = game.homeTeam.teamName;
+                                                                    let home_tri = game.homeTeam.teamTricode;
+                                                                    let away_gms = game.awayTeam.teamName;
+                                                                    let away_tri = game.awayTeam.teamTricode;
+                                                                    let location = game.arenaName;
+
+                                                                    if(home_gms == null && away_gms == null)
+                                                                        continue;
+                                                                    
+                                                                    let encoder_json = calculateEncoder(away_tri, home_tri, game.gameId, gmsData);
+                                                                    csv_row.push(p_conf + away_gms + post_pr);
+                                                                    csv_row.push(event_type_gms);
+                                                                    csv_row.push(date);
+                                                                    csv_row.push(time);
+                                                                    csv_row.push("");
+                                                                    csv_row.push(location);
+                                                                    csv_data.push(csv_row);
+                                                                    csv_row = [];
+
+                                                                    csv_row.push(p_conf + home_gms + post_pr);
+                                                                    csv_row.push(event_type_gms);
+                                                                    csv_row.push(date);
+                                                                    csv_row.push(time);
+                                                                    csv_row.push("");
+                                                                    csv_row.push(location);
+                                                                    csv_data.push(csv_row);
+                                                                    csv_row = [];
+
+
+                                                                    csv_schedule_row.push(event_type_schedule);
+                                                                    csv_schedule_row.push(day);
+                                                                    csv_schedule_row.push(date);
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push(away_tri + post_pr);
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push(event_type_schedule);
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push(orch_time + " ET");
+                                                                    csv_schedule_row.push(time + " ET");
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push(`COLO ${encoder_json.awayEncoder}`);
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push(blackout);
+                                                                    csv_schedule_row.push(geo);
+                                                                    csv_schedule_row.push(entitlement);
+                                                                    csv_schedule_data.push(csv_schedule_row);
+                                                                    csv_schedule_row = [];
+
+                                                                    csv_schedule_row.push(event_type_schedule);
+                                                                    csv_schedule_row.push(day);
+                                                                    csv_schedule_row.push(date);
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push(home_tri + post_pr);
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push(event_type_schedule);
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push(orch_time + " ET");
+                                                                    csv_schedule_row.push(time + " ET");
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push(`COLO ${encoder_json.homeEncoder}`);
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push("");
+                                                                    csv_schedule_row.push(blackout);
+                                                                    csv_schedule_row.push(geo);
+                                                                    csv_schedule_row.push(entitlement);
+                                                                    csv_schedule_data.push(csv_schedule_row);
+                                                                    csv_schedule_row = [];
+                                                                }
+                                                            
+
+                                                                //This section is where we create the downloadable files
+                                                                //console.log(csv_data)
+                                                                createCSV(csv_data,csv_schedule_data);
+                                                               
+                                                            })
+
+                                                });
+
+
+                });
+
+                document.getElementById("reset").addEventListener("click",function (){
+                            document.getElementById("file").value = null;
+                            document.getElementById('file').disabled = false;
+                            document.getElementById("output_div").innerHTML="";
+                            document.getElementById('submit').disabled = true; 
+                            document.getElementById('reset').disabled = true;
+                            document.getElementById('load').disabled = false;
+                });
+            
+                document.getElementById("load").addEventListener("click", function (){
+                    document.getElementById("load").disabled = true;
+                    document.getElementById('file').disabled = true;
+                    getGMSData("https://gms.internal.nba.com/gms/ui/v1/games",
+                            document.getElementById("start").value.split('T')[0], 
+                            document.getElementById("end").value.split('T')[0],
+                            season_dates[current_season].seasonID,  
+                            (res)=>{
+                                
+                                buildGMSTable(res);
+                                loadFlag = true;
+                            })
+                })
+            }
+            
+            function changeDates(e){
+                document.getElementById("reset").click();
+
+                var start_date = document.getElementById("start");
+                var end_date = document.getElementById("end");
+                var d_start = new Date();
+                var d_end = new Date();
+
+                if(e.value == "preseason"){
+                    //current_season = e.value;
+                    start_date.setAttribute("min", season_dates.preseason.begin_date);
+                    start_date.setAttribute("max", season_dates.preseason.finish_date);
+                    start_date.value = season_dates.preseason.begin_date;
+
+                    end_date.setAttribute("min", season_dates.preseason.begin_date);
+                    end_date.setAttribute("max", season_dates.preseason.finish_date);
+                    end_date.value = season_dates.preseason.finish_date;
+                } else if(e.value == "regularSeason"){
+                    //current_season=e.value;
+                    start_date.setAttribute("min", season_dates.regularSeason.begin_date);
+                    start_date.setAttribute("max", season_dates.regularSeason.finish_date);
+                    start_date.value = season_dates.regularSeason.begin_date;
+
+                    end_date.setAttribute("min", season_dates.regularSeason.begin_date);
+                    end_date.setAttribute("max", season_dates.regularSeason.finish_date);
+                    end_date.value = season_dates.regularSeason.finish_date;
+                } else if(e.value == "playoffs"){
+                    //current_season = e.value;
+                    start_date.setAttribute("min", season_dates.playoffs.begin_date);
+                    start_date.setAttribute("max", season_dates.playoffs.finish_date);
+                    start_date.value = season_dates.playoffs.begin_date;
+
+                    end_date.setAttribute("min", season_dates.playoffs.begin_date);
+                    end_date.setAttribute("max", season_dates.playoffs.finish_date);
+                    end_date.value = season_dates.playoffs.finish_date;
+                } else if(e.value == "playin"){
+                    //current_season = e.value;
+                    start_date.setAttribute("min", season_dates.playin.begin_date);
+                    start_date.setAttribute("max", season_dates.playin.finish_date);
+                    start_date.value = season_dates.playin.begin_date;
+
+                    end_date.setAttribute("min", season_dates.playin.begin_date);
+                    end_date.setAttribute("max", season_dates.playin.finish_date);
+                    end_date.value = season_dates.playin.finish_date;
+                }
+                current_season = e.value
+                console.log(current_season);
+            }
+
+            function createCSV(csv_data, csv_schedule_data){
+                const blob = new Blob([csv_data.join('\n')], { type: 'text/csv'}); 
+                const blob2 = new Blob([csv_schedule_data.join('\n')], {type: 'text/csv'});
+
+    
+                // Creating an object for downloading url 
+                const url = window.URL.createObjectURL(blob) 
+                const url2 = window.URL.createObjectURL(blob2) 
+                // Creating an anchor(a) tag of HTML 
+                const a = document.createElement('a') 
+                const a2 = document.createElement('a') 
+                // Passing the blob downloading url  
+                a.setAttribute('href', url) 
+                a2.setAttribute('href', url2)
+                // Setting the anchor tag attribute for downloading 
+                // and passing the download file name 
+                a.setAttribute('download', 'gms_data.csv'); 
+                a2.setAttribute('download', 'master_schedule_data.csv'); 
+                // Performing a download with click 
+                a.click(); 
+                a2.click();
+                URL.revokeObjectURL(url);
+                URL.revokeObjectURL(url2);
+                a.remove();
+                a2.remove();
+            }
+
+            function getTable(input){
+                    document.getElementById("output_div").innerHTML="";
+                    document.getElementById('submit').disabled = true; 
+                    document.getElementById('reset').disabled = true;
+                    document.getElementById('load').disabled = true;
+                    
+                    getFileData(input, 
+                    (res)=>{
+                        let fileData = JSON.parse(res)
+                        let game_dates = fileData.leagueSchedule.gameDates
+                        const filtered_dates = game_dates.filter(checkDate);
+                        //console.log("getTable - game_dates" + "\n" + game_dates);
+                        buildTable(filtered_dates);
+                        loadFlag = false;
+                    });
+            }
+
+            
+            function buildCSV(gameId, gmsD, arena, aTeam, hTeam, awayTri, homeTri, utcTime){
+                    
+
+                    let csv_row = [];
+                    let csv_schedule_row =[];
+                    let csv_data = [];
+                    let csv_schedule_data = [];
+                    
+                    
+                    let d = new Date(utcTime);
+                    let o = new Date(utcTime);
+
+                    
+                    //get the minute value of the date instance and + 150 for the presser time( 2 and half hours in minutes after event start) and - 105 (orchestrator time 1 hour 45 in minutes before)
+                    let orch_diff = o.getMinutes() - 105 + 150;
+                    o.setMinutes(orch_diff);
+                
+                    let press_diff = d.getMinutes() + 150;
+                    d.setMinutes(press_diff);
+
+                    let orch_time = o.toLocaleTimeString('en-US',{timeZone:'America/New_York', hour: 'numeric', minute: 'numeric', hour12: true});
+                    let time = d.toLocaleTimeString('en-US',{timeZone:'America/New_York', hour: 'numeric', minute: 'numeric', hour12: true});
+                    let date = d.toLocaleDateString('en-US',{timeZone:'America/New_York'});
+                    let day = days[d.getDay()];
+                    let home_gms = hTeam;
+                    let home_tri = homeTri;
+                    let away_gms = aTeam;
+                    let away_tri = awayTri;
+                    let location = arena;
+
+                    
+                    
+                    let encoder_json = calculateEncoder(away_tri, home_tri, gameId, gmsD);
+                    csv_row.push(p_conf + away_gms + post_pr);
+                    csv_row.push(event_type_gms);
+                    csv_row.push(date);
+                    csv_row.push(time);
+                    csv_row.push("");
+                    csv_row.push(location);
+                    csv_data.push(csv_row);
+                    csv_row = [];
+
+                    csv_row.push(p_conf + home_gms + post_pr);
+                    csv_row.push(event_type_gms);
+                    csv_row.push(date);
+                    csv_row.push(time);
+                    csv_row.push("");
+                    csv_row.push(location);
+                    csv_data.push(csv_row);
+                    csv_row = [];
+                    
+
+                    csv_schedule_row.push(event_type_schedule);
+                    csv_schedule_row.push(day);
+                    csv_schedule_row.push(date);
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push(away_tri + post_pr);
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push(event_type_schedule);
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push(orch_time + " ET");
+                    csv_schedule_row.push(time + " ET");
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push(`COLO ${encoder_json.awayEncoder}`);
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push(blackout);
+                    csv_schedule_row.push(geo);
+                    csv_schedule_row.push(entitlement);
+                    csv_schedule_data.push(csv_schedule_row);
+                    csv_schedule_row = [];
+
+                    csv_schedule_row.push(event_type_schedule);
+                    csv_schedule_row.push(day);
+                    csv_schedule_row.push(date);
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push(home_tri + post_pr);
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push(event_type_schedule);
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push(orch_time + " ET");
+                    csv_schedule_row.push(time + " ET");
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push(`COLO ${encoder_json.homeEncoder}`);
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push("");
+                    csv_schedule_row.push(blackout);
+                    csv_schedule_row.push(geo);
+                    csv_schedule_row.push(entitlement);
+                    csv_schedule_data.push(csv_schedule_row);
+                    csv_schedule_row = [];
+                    
+            
+                return {"csvData":csv_data, "csvScheduleData" :csv_schedule_data};
+                //This section is where we create the downloadable files
+                
+                       
+            }
+            //function passed to use as a function call back for filter method above for the array chosen
+            function checkDate(date){
+                //turn the gameDate key from a date string to a timestamp to check against start/end timestamps values from html input element
+                let parsed_date = Date.parse(date.gameDate);
+                const filter_start_date = document.getElementById("start").valueAsNumber;
+                const filter_end_date = document.getElementById("end").valueAsNumber;
+
+                //had to convert from time stamp to date because values were off by one
+                //something to do with the inherent html valueAsNumber built in timestamp conversion? or the timestamp from schedule response is off
+                //https://stackoverflow.com/a/9509687 for reference
+                let d_end = new Date(filter_end_date);
+                let d_start = new Date(filter_start_date);
+                d_end.setDate(d_end.getDate()+ 1);
+                //did not apply the +1 to the start time as that was off by one which would self resolve by keeping the same
+                d_start.setDate(d_start.getDate());
+                
+                return (parsed_date >= d_start.getTime() && parsed_date <= d_end.getTime());
+            }
+
+            //Function for getting Data from file and building table
+            function buildTable(eventList){
+                
+                //let div = document.getElementById("input_div");
+                
+                //let body = document.body;
+                let div = document.getElementById('output_div');
+                let btn = document.createElement('button');
+                btn.name = "select_all";
+                btn.id = "select_all";
+                btn.value = "Select All";
+                btn.textContent = "Select All"
+
+               
+                let table = document.createElement('table');
+                let h2 = document.createElement('h2');
+                h2.textContent = '3.) Select games to create pressers, then press "Generate Presser" to download csv file. Select "Reset" to start over';
+                table.style.width = '600px';
+                table.style.border = '2px solid black';
+
+                
+                let headers = ["Select All", "ID", "Game", "Date", "Time"];
+                let header = table.createTHead();
+
+                //have to adjust this header logic, but for now, it works....
+                let th = header.insertRow();
+                //rinse and repeat these lines for all the table headers
+                for(let h of headers)
+                {
+                    
+                    let td = th.insertCell();
+                    if(h == "Select All"){
+                        td.appendChild(btn);
+                        td.style.border = '1px solid black';
+                        continue;
+                    }
+                    
+                    td.appendChild(document.createTextNode(`${h}`));
+                    td.style.border = '1px solid black';
+                }
+
+                let tbody = table.createTBody();
+                for(let event of eventList)
+                {
+                    for(let game of event.games)
+                    {
+                        /*if(game.awayTeam.teamTricode == null && game.homeTeam.teamTricode == null);
+                            continue;*/
+                        
+                        let checkbox = document.createElement('input');
+            
+                        // Assigning the attributes to created checkbox
+                        checkbox.type = "checkbox";
+                        checkbox.name = game.gameId;
+                        //checkbox.value = "";
+                        checkbox.id = game.gameId;
+                        checkbox.className = "checkbox";
+
+                        //you have to assign the tbody var the table.createTBody() method to have all the subsequent values be apart of the body
+                        //otherwise, the values will be left inserted in the previous call which is the header
+                        let tr = tbody.insertRow();
+                        let td = tr.insertCell();
+                        td.appendChild(checkbox);
+                        td.style.border = '1px solid black';
+
+                        td = tr.insertCell();
+                        td.appendChild(document.createTextNode(`${game.gameId}`));
+                        td.style.border = '1px solid black';
+
+                        td = tr.insertCell();
+                        td.appendChild(document.createTextNode(`${game.awayTeam.teamTricode}@${game.homeTeam.teamTricode}`));
+                        td.style.border = '1px solid black';
+
+
+                        let d = new Date(game.gameDateTimeUTC);
+                        let date = d.toLocaleDateString('en-US',{timeZone:'America/New_York'});
+                        td.style.border = '1px solid black';
+
+                        td = tr.insertCell();
+                        td.appendChild(document.createTextNode(`${date}`));
+                        td.style.border = '1px solid black';
+
+                        td = tr.insertCell();
+                        td.appendChild(document.createTextNode(`${game.gameStatusText}`));
+                        td.style.border = '1px solid black';
+                    }
+                }
+                div.appendChild(h2);
+                div.appendChild(table);
+
+                btn.addEventListener("click", function(){
+                    var checkBoxes = document.getElementsByClassName("checkbox");
+                    for(let check_box of checkBoxes)
+                    {
+                            
+                            if(!check_box.checked)
+                                check_box.checked = true;
+                            else
+                                check_box.checked = false;
+                    }
+                })
+
+
+
+                document.getElementById('submit').disabled = false;   
+                document.getElementById('reset').disabled = false; 
+            }
+
+            //Function for getting Data directly from GMS and building table
+            function buildGMSTable(data){
+                
+                //bubblesort GMS data cause it doesn't load in order........
+                let list = bubbleSort(data);
+
+                //end bubblesort
+                let div = document.getElementById('output_div');
+                let btn = document.createElement('button');
+                btn.name = "select_all";
+                btn.id = "select_all";
+                btn.value = "Select All";
+                btn.textContent = "Select All"
+
+               
+                let table = document.createElement('table');
+                let h2 = document.createElement('h2');
+                h2.textContent = '3.) Select games to create pressers, then press "Generate Presser" to download csv file. Select "Reset" to start over';
+                table.style.width = '600px';
+                table.style.border = '2px solid black';
+
+                
+                let headers = ["Select All", "ID", "Game", "Date", "Time"];
+                let header = table.createTHead();
+
+                //have to adjust this header logic, but for now, it works....
+                let th = header.insertRow();
+                //rinse and repeat these lines for all the table headers
+                for(let h of headers)
+                {
+                    
+                    let td = th.insertCell();
+                    if(h == "Select All"){
+                        td.appendChild(btn);
+                        td.style.border = '1px solid black';
+                        continue;
+                    }
+                    
+                    td.appendChild(document.createTextNode(`${h}`));
+                    td.style.border = '1px solid black';
+                }
+
+                let tbody = table.createTBody();
+            
+                for(let game of list)
+                {
+                    /*if(game.awayTeam.teamTricode == null && game.homeTeam.teamTricode == null);
+                        continue;*/
+                    if(game.leagueId != "00" || game.seasonType == "3" || game.seasonType == "6")
+                        continue;
+                    
+
+                    let checkbox = document.createElement('input');
+        
+                    // Assigning the attributes to created checkbox
+                    checkbox.type = "checkbox";
+                    checkbox.name = game.gameId;
+                    //checkbox.value = "";
+                    checkbox.id = game.gameId;
+                    checkbox.className = "checkbox";
+
+                    //you have to assign the tbody var the table.createTBody() method to have all the subsequent values be apart of the body
+                    //otherwise, the values will be left inserted in the previous call which is the header
+                    let tr = tbody.insertRow();
+                    let td = tr.insertCell();
+                    td.appendChild(checkbox);
+                    td.style.border = '1px solid black';
+
+                    td = tr.insertCell();
+                    td.appendChild(document.createTextNode(`${game.gameId}`));
+                    td.style.border = '1px solid black';
+
+                    td = tr.insertCell();
+                    td.appendChild(document.createTextNode(`${game.awayTeamAbbr}@${game.homeTeamAbbr}`));
+                    td.style.border = '1px solid black';
+
+                    let d = new Date(game.dateTimeUtc);
+                    let time = `${d.toLocaleTimeString()}` + " ET"
+
+                    if(game.dateTimeUtc == null){
+                        let splitDate = game.dateEst;
+                        splitDate = splitDate.split("-");
+                        d = new Date(splitDate[0], splitDate[1] -1, splitDate[2]);
+                        time = "TBD"
+                    }
+                    
+                    let date = d.toLocaleDateString('en-US',{timeZone:'America/New_York'});
+
+                    td = tr.insertCell();
+                    td.appendChild(document.createTextNode(`${date}`));
+                    td.style.border = '1px solid black';
+
+                    td = tr.insertCell();
+                    td.appendChild(document.createTextNode(time));
+                    td.style.border = '1px solid black';
+                }
+                
+                div.appendChild(h2);
+                div.appendChild(table);
+
+                btn.addEventListener("click", function(){
+                    var checkBoxes = document.getElementsByClassName("checkbox");
+                    for(let check_box of checkBoxes)
+                    {
+                            
+                            if(!check_box.checked)
+                                check_box.checked = true;
+                            else
+                                check_box.checked = false;
+                    }
+                })
+
+
+
+                document.getElementById('submit').disabled = false;   
+                document.getElementById('reset').disabled = false; 
+            }
+
+            
+            function calculateEncoder(awayTri, homeTri, id, data){
+                
+                let National = false,
+                    Home = false,
+                    Away = false,
+                    natEncoder = "",
+                    homeEncoder = "",
+                    awayEncoder = "",
+                    json_data = {};
+
+                /*
+                Searches medias for the given day and determines National, Home, and Away encoders solely on if the gameID from the media
+                matches the gameID provided to the function in the call. 
+                */
+                for(let media of data){
+                    //Check if the current media's Game ID in the data matches the Game ID we're searching through
+                    //True -> Continue checks ; False -> Move on to the next imedia in the list
+                    if(media.gameId == id){
+                        //Every if statement in this nested section will check if the current media is a National, Home, or Away.
+                        //Seperated by If statements as a measure to force each one to run
+                        //Bool values that are being checked against will be adjusted to True if the media is confirmed National/Home/Away in order to avoid a rerun of the logic
+                        //AKA if True, we have the National encoder, so skip the encoder check on next successful passes
+                        if(!National){
+                            //Checks against a predefined list of National media names that would match with the mediaName provided by the data. Change value to True if found, leave False otherwise
+                            National = natMedias.includes(media.mediaFullName);
+                            //If the Bool value is True (media matches to a national media), set the encoder value to the value in the current data
+                            //If false, leave encoder value empty
+                            natEncoder = (National) ? media.encoder : "";
+                        }
+                        if(!Home){
+                            Home = media.mediaFullName.includes("NSS-Team-"+media.homeTeamAbbr);
+                            homeEncoder = (Home) ? media.encoder :"";
+                        }
+                        if(!Away){
+                            Away = media.mediaFullName.includes("NSS-Team-"+media.awayTeamAbbr);
+                            awayEncoder = (Away) ? media.encoder :"";
+                        }
+                    
+                    }
+                }
+
+                if(Home && Away){
+                    json_data["awayEncoder"] = awayEncoder;
+                    json_data["homeEncoder"] = homeEncoder;
+                    
+                }
+                else if (National && !Away){
+                    json_data["awayEncoder"] = natEncoder;
+                    json_data["homeEncoder"] = teamEncoders[homeTri];
+                  
+                }
+                else if(National && !Home){
+                    json_data["awayEncoder"] = awayEncoder;
+                    json_data["homeEncoder"] = natEncoder;
+                   
+                }
+                
+                return json_data;
+            }
+
+            function handleSelectAll(){
+                var checkBoxes = document.getElementsByClassName("checkbox");
+                for(let check_box of checkBoxes)
+                {
+                        
+                        if(!check_box.checked)
+                            check_box.checked = true;
+                        else
+                            check_box.checked = false;
+                }
+            }
+            //function to return callback
+            getGMSData = function(url, sDate, eDate, seasonID, callback){
+                var xhttp = new XMLHttpRequest();
+                xhttp.onreadystatechange = function() {
+                    if (this.readyState == 4 && this.status == 200) {
+                        let res = this.responseText;
+                        
+                        callback(JSON.parse(res));
+                    }
+                    else{
+                        callback(null)
+                    }
+                };
+                xhttp.open("GET", url +`?startDate=${sDate}&endDate=${eDate}&seasonID=${seasonID}`, true);
+                xhttp.send();
+            }
+
+            getFileData = function(event, callback){
+                let fileReader = new FileReader();
+                fileReader.onload = function(){
+                    //console.log("getFileData" + "\n" + fileReader.result);
+                    callback(fileReader.result);
+                }
+                fileReader.readAsText(event.files[0]);
+            }
+        
+            function bubbleSort(res){
+            //bubblesort GMS data cause it doesn't load in order........
+                var list = res;
+                var x, y, temp;
+                var swap;
+                
+                
+                for(x = 0; x < list.length; x++){
+                    swap = false;
+                    for(y = 0; y < list.length - x - 1; y++){
+                        let sortKey = "dateTimeUtc";
+                        let sortKey2 = "dateTimeUtc";
+
+                        if(list[y].dateTimeUtc == null)
+                            sortKey = "dateEst"
+                        if(list[y+1].dateTimeUtc == null)
+                            sortKey2 = "dateEst"
+
+                        if(list[y][sortKey] > list[y+1][sortKey2]){
+                            temp = list[y];
+                            list[y] = list[y +1];
+                            list[y+1] = temp;
+                            swap = true;
+                        }
+                }
+                if(swap == false)
+                    break;
+                }
+                return list;
+            //end bubblesort
+            }
+        </script>
+        <!--link rel="stylesheet" href="./style.css"/-->
+        <style>
+            *{
+                margin: 0px;
+                padding: 0px;
+                box-sizing: border-box;
+            }
+            img{
+                height: 50px;
+                align-items: center;
+            }
+
+            .body {
+                display: flex;
+                font-family: "Montserrat", sans-serif;
+                text-align: center;
+                align-items: center;
+                justify-content: center;
+                margin: top 250px;
+            }
+            nav{
+                display: flex;
+                justify-content: space-around;
+                align-items: center;
+                min-height: 9vh;
+                background-color: rgb(64, 64, 208);
+                font-family: "Montserrat",sans-serif;
+            }
+            .heading{
+                color:white;
+                text-transform: uppercase;
+                letter-spacing: 5px;
+                font-size: 30px;
+            }
+            
+            .nav-links{
+                display:flex;
+                justify-content: space-around;
+                min-width:30%;
+            }
+
+            .nav-links li{
+                list-style: none;
+            }
+
+            .nav-links a{
+                color: white;
+                text-decoration: none;
+                letter-spacing: 3px;
+                font-weight: bold;
+                font-size: 14px;
+                padding: 14px 16px;
+            }
+
+            .nav-links a:hover:not(.active){
+                background-color: black;
+            }
+
+            .nav-links li a.active{
+                background-color: rgb(206, 32, 32)
+            }
+
+            .body.text{
+                display: block;
+                text-align: center;
+            }
+
+            table{
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+        </style>
+    </head>
+    <body>
+        <!--Nav Bar-->
+        <div class ="body text">
+            <br>
+            <h1>Press Conference Generator</h1><br>
+            <h2>Choose a Season</h2>
+            <select id="season" onchange="changeDates(this)">
+                <option selected disabled value> - Select a season type - </option>
+                <option value="regularSeason">Regular Season</option>
+                <option value="playoffs">Playoffs</option>
+                <option value="preseason">Preseason</option>
+                <option value="playin">Play-In</option>
+                <!--option value="ist">NBA Cup Championship</option-->
+            </select>
+            <br>
+            <br>
+            <h2>1.) Set the start/end dates you want to filter through</h2>
+            <label for="start">Start date:</label><input type="date" id="start" name="d-start" value="2025-10-21" min="2025-10-21" max="2026-04-12"/><br>
+            <label for="end">End date:</label><input type="date" id="end" name="d-end" value="2026-04-12" min="2025-10-21" max="2026-04-12"/>
+            <br>
+            <br>
+            <h2>2.) Open the master schedule JSON file</h2><br>
+            <label class="label upload" >Choose a JSON file to upload</label><br>
+            <input type="file" id="file" name="upload" accept=".json" onchange="getTable(this)"><br><br>
+            <h2>Or Load Directly</h2>
+            <input type="button" id="load"  name="load-button" value="Load Data" ><br><br>
+
+            
+            <div class="container output" id="output_div"></div><br>
+            <input disabled type="button" id="submit" name="submit-button" value="Generate Presser">
+            <input disabled type="button" id="reset" name="reset-button" value="Reset">
+        </div><br>
+
+    </body>
+
+</html>
