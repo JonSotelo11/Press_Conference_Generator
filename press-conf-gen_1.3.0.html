@@ -90,7 +90,7 @@
                                                 season_dates[current_season].seasonID, 
                                                 (response)=>{
                                                     gmsData = response;
-                                                    console.log("loadFlag is " + loadFlag + "\n");
+                                                    
                                                     if(loadFlag)
                                                         getGMSData("https://gms.internal.nba.com/gms/ui/v1/games",
                                                             document.getElementById("start").value.split('T')[0], 
@@ -98,7 +98,7 @@
                                                             season_dates[current_season].seasonID, 
                                                             (res)=>{
                                                                 
-                                                                //console.log(res)
+                                                               
                                                                 
                                                                 let dataJSON = bubbleSort(res);
                                                                 var csv_row_header = ["Name", "Event Type", "Eastern Date", "Eastern Time", "Local Date Time", "Location"];
@@ -149,7 +149,7 @@
                                                         getFileData(input, 
                                                             (res)=>
                                                             {
-                                                                console.log("Entered GetFileData");
+                                                                
                                                                 fileData = JSON.parse(res);
                                                                 let game_dates = fileData.leagueSchedule.gameDates;
                                                                 const filtered_dates = game_dates.filter(checkDate);
@@ -186,7 +186,7 @@
                                                                         }
                                                                     }
                                                                 }
-                                                                //console.log(return_arr)
+                                                                
                                                                 //section where data is now read and added to the variables that will be used to generate the csv files
                                                                 for(let game of return_arr)
                                                                 {
@@ -298,7 +298,7 @@
                                                             
 
                                                                 //This section is where we create the downloadable files
-                                                                //console.log(csv_data)
+                                                                
                                                                 createCSV(csv_data,csv_schedule_data);
                                                                
                                                             })
@@ -378,7 +378,7 @@
                     end_date.value = season_dates.playin.finish_date;
                 }
                 current_season = e.value
-                console.log(current_season);
+                
             }
 
             function createCSV(csv_data, csv_schedule_data){
@@ -419,7 +419,7 @@
                         let fileData = JSON.parse(res)
                         let game_dates = fileData.leagueSchedule.gameDates
                         const filtered_dates = game_dates.filter(checkDate);
-                        //console.log("getTable - game_dates" + "\n" + game_dates);
+                        
                         buildTable(filtered_dates);
                         loadFlag = false;
                     });
@@ -872,7 +872,7 @@
             getFileData = function(event, callback){
                 let fileReader = new FileReader();
                 fileReader.onload = function(){
-                    //console.log("getFileData" + "\n" + fileReader.result);
+                    
                     callback(fileReader.result);
                 }
                 fileReader.readAsText(event.files[0]);
